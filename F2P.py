@@ -35,8 +35,10 @@ def GetIndicesFile():
     fn = fd.askopenfilename()
     if not fn:
         fn = indices_filename;
+    else:
+        ParseIndices(fn);
     indices_filename = fn;
-    ParseIndices(fn);
+    l1.config(text = "Файл индексов выбран");
     
 ##
 def ParseIndices(file):
@@ -92,8 +94,10 @@ def GetFrequencesFile():
     fn = fd.askopenfilename()
     if not fn:
         fn = frequences_filename;
+    else:
+        Preproc(frequences_filename);
     frequences_filename = fn;
-    Preproc(frequences_filename);
+    l1.config(text = "Файл частот выбран");
 
 def Import():
     data_tm = pd.read_csv(frequences_filename, sep = ' ', \
@@ -180,10 +184,7 @@ def mainCycle(data, data_tm, path = 'graphs'):
             kp = dTP.values[:]
             resp = cube_funct(tt, kp)
             predict = np.array([kp,resp])
-            ## FACT
-            dFF = data_tm.query('HOUR == @HRS & YEAR == @OBS_YEAR & {} != "NaN"'.format(MON))[MON]
-            dTF  = data.loc[data.index.isin(dFP.index)][MON]
-            fact = np.array([dTF.values[:],dFF.values[:]])
+            fact = np.array([dTP.values[:],dFP.values[:]])
             points = np.array([predict,fact])
 
             out_table.append(accumulated_info)
