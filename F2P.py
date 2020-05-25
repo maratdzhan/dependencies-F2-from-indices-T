@@ -1,13 +1,17 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import interpolate
 from scipy import stats
 import tkinter as tk
-from tkinter import *
 from tkinter import filedialog as fd
 from scipy.stats.stats import pearsonr
 import os
+
+####################################
+############  Полное описание проекта
+############  и последние обновления можно найти в репозитории разработчика:
+############  https://github.com/maratdzhan/dependencies-F2-from-indices-T
+####################################
 
 COLUMNS = ['YEAR', 'HOUR', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', \
            'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
@@ -15,30 +19,56 @@ MONTHS_ARR = COLUMNS[2:]
 HOUR_A = np.arange(0,24,1)
 MAX_YEAR = 2018
 OBS_YEAR = 2019
+yticks_value = 0.25
 indices_filename = "ind.txt";
 frequences_filename = "freq.txt";
+result_file = "table_result.txt"
 
 emptyStringChar = 6;
 
 data = pd.DataFrame();
 data_tm = pd.DataFrame();
 
+
+############################################################
+##
+def RU_MON(MON):
+    RM = ["Январь", "Февраль", "Март", "Апрель","Май","Июнь","Июль",
+         "Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+    return (RM[MONTHS_ARR.index(MON)]);
+
 ## 
-def SaveTable(data, filename):
+def SaveTable(data, filename, nl = 0):
     file = open(filename, 'w');
     for line in data:
-        file.write(str(line));
+        if (nl):
+            line = str(line) + '\n';
+        else:
+            line = str(line);
+        file.write(line);
     file.close()
+############################################################
 
+##
+def GetFrequencesFile():
+    fn = fd.askopenfilename()
+    print(fn)
+    if not fn:
+        fn = "freq.txt";
+    else:
+        Preproc(fn);
+    frequences_filename = fn;
+    print("Файл частот выбран");
 
 def GetIndicesFile():
     fn = fd.askopenfilename()
+    print(fn);
     if not fn:
-        fn = indices_filename;
+        fn = "ind.txt";
     else:
         ParseIndices(fn);
     indices_filename = fn;
-    l1.config(text = "Файл индексов выбран");
+    print("Файл индексов выбран");
     
 ##
 def ParseIndices(file):
@@ -89,16 +119,6 @@ def Preproc(filename):
     SaveTable(temp_data_array, 'freq.txt');
     frequences_filename = "freq.txt";
 
-##
-def GetFrequencesFile():
-    fn = fd.askopenfilename()
-    if not fn:
-        fn = frequences_filename;
-    else:
-        Preproc(frequences_filename);
-    frequences_filename = fn;
-    l1.config(text = "Файл частот выбран");
-
 def Import():
     data_tm = pd.read_csv(frequences_filename, sep = ' ', \
                      names = COLUMNS, skipinitialspace = True, index_col = 'YEAR')
@@ -141,18 +161,19 @@ def Plotting(t, f2, x, y,  ccs, correlation_coeff, points, MONTHS, HOURS, path, 
     plt.savefig(name)
     if isShow:
         plt.show()
-    else:
-        l1.config(text = "{}-{}-P".format(MONTHS, HOURS));
     plt.close()
 
 
 
 def mainCycle(data, data_tm, path = 'graphs'):
     out_table = [];
-    out_table.append("Month, Hour, a, b, c, d, Pearson R\n")
+    ############################################################
+    out_table.append("Month,Hour,a,b,c,d,Pearson R,dF\n")
+    dF2 = [];
+    ############################################################
     for MON in data.columns:
         for HRS in HOUR_A:
-            l1.config(text = "{}-{}".format(MON, HRS));
+            print("{}-{}".format(MON, HRS));
             dF = data_tm.query('HOUR == @HRS & YEAR <= @MAX_YEAR & {} > 0'.format(MON))[MON]
             dT = data.loc[data.index.isin(dF.index)][MON]
             t = dT.values[:]
@@ -178,19 +199,34 @@ def mainCycle(data, data_tm, path = 'graphs'):
             corr_coeff = pearsonr(t1, f1)[0]
             accumulated_info = "{},{},{:.5e},{:.5e},{:.5e},{:.5f},{:.5f}\
             \n".format(MON, HRS, tt[3], tt[2], tt[1], tt[0], corr_coeff)
+            ############################################################
             ## PREDICT
             dFP = data_tm.query('HOUR == @HRS & YEAR == @OBS_YEAR & {} != "NaN"'.format(MON))[MON]
             dTP  = data.loc[data.index.isin(dFP.index)][MON]
             kp = dTP.values[:]
             resp = cube_funct(tt, kp)
             predict = np.array([kp,resp])
-            fact = np.array([dTP.values[:],dFP.values[:]])
+            ## FACT
+            dFF = data_tm.query('HOUR == @HRS & YEAR == @OBS_YEAR & {} != "NaN"'.format(MON))[MON]
+            dTF  = data.loc[data.index.isin(dFP.index)][MON]
+            fact = np.array([dTF.values[:],dFF.values[:]])
             points = np.array([predict,fact])
-
+            devF = fact[1,0] - predict[1,0];
+            dF2.append(devF);
+            accumulated_info = "{},{},{:.5e},{:.5e},{:.5e},{:.5f},{:.5f},{:.5f}\
+            \n".format(MON, HRS, tt[3], tt[2], tt[1], tt[0], corr_coeff, devF)
             out_table.append(accumulated_info)
+            ############################################################
             Plotting(t1, f1, lv, cube_polyfit, tt, corr_coeff, points, MON, HRS, path, False)
+    ############################################################
+    mdF = np.mean(dF2);
+    ddF = np.var(dF2);
+    s = "mean dF value: {}\n var dF value: {}".format(mdF, ddF);
+    md_data = np.array([s])
+    SaveTable(md_data, "statistic.txt",1);
+    SaveTable(dF2, "dF2_values.txt",1);
+    ############################################################
     return out_table;
-
 
 
 def SetDependencies():
@@ -201,12 +237,40 @@ def SetDependencies():
     SaveTable(ot,"result_table.txt");
 
 
-root = Tk()
+def GetDaily(T_val, path_dir = "daily_graph"):
+    rt = pd.read_csv(result_file);
+    F2 = []
+    for MON in MONTHS_ARR:
+        mon_tab = rt.query('Month == @MON');
+        for HR in HOUR_A:
+            koef = list(reversed(mon_tab.iloc[HR,2:6].to_list()))
+            F2.append(cube_funct(koef, T_val));
+        plt.figure(figsize = (14,10));
+        plt.plot(HOUR_A, F2, 'b-o');
+        plt.title("Дневной ход медианной частоты F2 для месяца {} при индексе T = {}"\
+                  .format(RU_MON(MON), T_val));
+        plt.grid(color = 'blue', alpha = 0.2);
+        plt.xlabel("Время суток, ч.", fontsize = 16)
+        plt.ylabel("Медианные частоты F2, МГц", fontsize = 16)
+        plt.xticks(HOUR_A)
+        plt.yticks(np.arange(min(F2), max(F2) + yticks_value, yticks_value))
+        if not (os.path.exists(path_dir)):
+            os.mkdir(path_dir)
+        path = path_dir + '/' + str(MONTHS_ARR.index(MON)) + '_' + MON + '_' + str(T_val) + '.png'
+        plt.savefig(path);
+        plt.close();
+        F2.clear();
+        
+
+w = 200;
+h = 200;
+root = tk.Tk()
 root.title("F2P")
-f = Frame()
-bi = Button(text="Load indices", command=GetIndicesFile);
-bf = Button(text="Load freq", command=GetFrequencesFile);
-br = Button(text="Run", command = SetDependencies);
+root.geometry('300x150+{}+{}'.format(w, h))
+f = tk.Frame()
+bi = tk.Button(text="Load indices", command=GetIndicesFile);
+bf = tk.Button(text="Load freq", command=GetFrequencesFile);
+br = tk.Button(text="Run", command = SetDependencies);
 
 bi.pack(padx = 10, pady = 10);
 bf.pack(padx = 10, pady = 10);
