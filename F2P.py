@@ -22,7 +22,7 @@ OBS_YEAR = 2019
 yticks_value = 0.25
 indices_filename = "ind.txt";
 frequences_filename = "freq.txt";
-result_file = "table_result.txt"
+result_file = "result_table.txt"
 
 emptyStringChar = 6;
 
@@ -260,7 +260,7 @@ def GetDaily(T_val, path_dir = "daily_graph"):
         plt.savefig(path);
         plt.close();
         F2.clear();
-        
+
 
 w = 200;
 h = 200;
